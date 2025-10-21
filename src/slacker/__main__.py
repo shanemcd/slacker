@@ -260,6 +260,183 @@ def cmd_api(args):
     print(json.dumps(result, indent=2))
 
 
+def cmd_reminder(args):
+    """Create a Slack reminder"""
+    creds = read_auth_file(args.auth_file)
+
+    # Build the blocks structure - pass the text directly to Slack's parser
+    data = {
+        "command": "/remind",
+        "disp": "/remind",
+        "blocks": [{
+            "type": "rich_text",
+            "elements": [{
+                "type": "rich_text_section",
+                "elements": [{
+                    "type": "text",
+                    "text": args.text
+                }]
+            }]
+        }],
+        "channel": args.channel or "D19Q000SE"  # Default to notes channel
+    }
+
+    # Make the API call
+    result = call_slack_api('chat.command', creds['token'], creds['cookie'], method='POST', data=data)
+
+    if result.get('ok'):
+        print(f"✓ Reminder created: {args.text}")
+    else:
+        print(f"✗ Failed to create reminder: {result.get('error')}")
+        sys.exit(1)
+
+
+def get_channel_name(channel_id, token, cookie):
+    """Get channel name from channel ID"""
+    try:
+        result = call_slack_api('conversations.info', token, cookie, method='GET', params={'channel': channel_id})
+        if result.get('ok'):
+            channel = result.get('channel', {})
+            # For DMs, use the user's name if available
+            if channel.get('is_im'):
+                user_id = channel.get('user')
+                if user_id:
+                    user_result = call_slack_api('users.info', token, cookie, method='GET', params={'user': user_id})
+                    if user_result.get('ok'):
+                        user = user_result.get('user', {})
+                        return f"@{user.get('name', channel_id)}"
+            return channel.get('name', channel_id)
+    except:
+        pass
+    return channel_id
+
+
+def get_message_content(channel_id, timestamp, token, cookie):
+    """Get message content from channel and timestamp"""
+    try:
+        result = call_slack_api('conversations.history', token, cookie, method='GET',
+                               params={'channel': channel_id, 'latest': timestamp,
+                                      'inclusive': True, 'limit': 1})
+        if result.get('ok') and result.get('messages'):
+            message = result['messages'][0]
+            # Extract text from message
+            text = message.get('text', '')
+
+            # If message has blocks, try to extract rich text
+            if not text and message.get('blocks'):
+                for block in message['blocks']:
+                    if block.get('type') == 'rich_text':
+                        for element in block.get('elements', []):
+                            if element.get('type') == 'rich_text_section':
+                                for elem in element.get('elements', []):
+                                    if elem.get('type') == 'text':
+                                        text += elem.get('text', '')
+
+            return text
+    except:
+        pass
+    return None
+
+
+def cmd_reminders_list(args):
+    """List saved reminders and later items"""
+    creds = read_auth_file(args.auth_file)
+
+    # Call saved.list API
+    data = {
+        "filter": "saved",
+        "limit": args.limit,
+        "include_tombstones": True
+    }
+
+    result = call_slack_api('saved.list', creds['token'], creds['cookie'], method='POST', data=data)
+
+    if not result.get('ok'):
+        print(f"✗ Failed to list reminders: {result.get('error')}")
+        sys.exit(1)
+
+    saved_items = result.get('saved_items', [])
+
+    # Filter to reminders only if requested
+    if args.reminders_only:
+        saved_items = [item for item in saved_items if item.get('item_type') == 'reminder']
+
+    if not saved_items:
+        print("No saved items found.")
+        return
+
+    # Display results
+    print(f"Found {len(saved_items)} saved items:\n")
+
+    # Get workspace URL for building links
+    auth_result = call_slack_api('auth.test', creds['token'], creds['cookie'])
+    workspace_url = auth_result.get('url', 'https://slack.com') if auth_result.get('ok') else 'https://slack.com'
+
+    for item in saved_items:
+        item_type = item.get('item_type', 'unknown')
+        state = item.get('state', 'unknown')
+
+        if item_type == 'reminder':
+            # Extract description text
+            desc_blocks = item.get('description', [])
+            text = "Unknown"
+            if desc_blocks:
+                try:
+                    text = desc_blocks[0]['elements'][0]['elements'][0]['text']
+                except (KeyError, IndexError):
+                    pass
+
+            # Format due date
+            import datetime
+            due_ts = item.get('date_due', 0)
+            due_date = datetime.datetime.fromtimestamp(due_ts).strftime('%Y-%m-%d %H:%M')
+
+            print(f"[{state}] Reminder: {text}")
+            print(f"  Due: {due_date}")
+            print()
+        else:
+            # Saved message
+            channel_id = item.get('item_id', 'unknown')
+            ts = item.get('ts', 'unknown')
+
+            # Get channel name
+            channel_name = get_channel_name(channel_id, creds['token'], creds['cookie'])
+
+            # Get message content
+            message_text = get_message_content(channel_id, ts, creds['token'], creds['cookie'])
+
+            # Format timestamp
+            import datetime
+            try:
+                msg_ts = float(ts)
+                msg_date = datetime.datetime.fromtimestamp(msg_ts).strftime('%Y-%m-%d %H:%M')
+            except:
+                msg_date = ts
+
+            # Build message link
+            ts_link = ts.replace('.', '')
+            message_link = f"{workspace_url}archives/{channel_id}/p{ts_link}"
+
+            print(f"[{state}] Saved message in #{channel_name}")
+            print(f"  Date: {msg_date}")
+            if message_text:
+                # Truncate message if too long
+                preview = message_text[:100] + '...' if len(message_text) > 100 else message_text
+                # Replace newlines with spaces for preview
+                preview = preview.replace('\n', ' ')
+                print(f"  Preview: {preview}")
+            print(f"  Link: {message_link}")
+            print()
+
+    # Show counts
+    counts = result.get('counts', {})
+    print(f"Summary:")
+    print(f"  Total: {counts.get('total_count', 0)}")
+    print(f"  Uncompleted: {counts.get('uncompleted_count', 0)}")
+    print(f"  Overdue: {counts.get('uncompleted_overdue_count', 0)}")
+    print(f"  Completed: {counts.get('completed_count', 0)}")
+
+
 def cmd_discover(args):
     """Discover available Slack API methods by scraping documentation"""
     print("Discovering Slack API methods...")
@@ -435,6 +612,41 @@ def main():
         help='Show all methods in all categories'
     )
     discover_parser.set_defaults(func=cmd_discover)
+
+    # Reminder command
+    reminder_parser = subparsers.add_parser(
+        'reminder',
+        help='Create a Slack reminder',
+        description='Create a reminder using Slack\'s /remind command with natural language parsing'
+    )
+    reminder_parser.add_argument(
+        'text',
+        help='Reminder text - Slack will parse it naturally (e.g., "me to call mom tomorrow", "me to review PR in 30 minutes")'
+    )
+    reminder_parser.add_argument(
+        '--channel', '-c',
+        help='Channel to send reminder to (default: your notes channel)'
+    )
+    reminder_parser.set_defaults(func=cmd_reminder)
+
+    # Reminders list command
+    reminders_parser = subparsers.add_parser(
+        'reminders',
+        help='List saved reminders and later items',
+        description='List all saved reminders and messages from Slack Later'
+    )
+    reminders_parser.add_argument(
+        '--limit', '-l',
+        type=int,
+        default=50,
+        help='Maximum number of items to list (default: 50)'
+    )
+    reminders_parser.add_argument(
+        '--reminders-only', '-r',
+        action='store_true',
+        help='Show only reminders (exclude saved messages)'
+    )
+    reminders_parser.set_defaults(func=cmd_reminders_list)
 
     args = parser.parse_args()
 

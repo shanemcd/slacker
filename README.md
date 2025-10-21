@@ -72,6 +72,34 @@ uv run slacker discover --category users
 uv run slacker discover --category conversations
 ```
 
+### Reminder
+Create Slack reminders using natural language (just like `/remind` in Slack):
+```bash
+# Create reminders - Slack parses the text naturally
+uv run slacker reminder "me to call mom tomorrow at 9am"
+uv run slacker reminder "me to review PR in 30 minutes"
+uv run slacker reminder "me to check status next Monday"
+
+# You can omit "me to" if you prefer
+uv run slacker reminder "call mom tomorrow"
+
+# Send reminder to specific channel (default: your notes channel)
+uv run slacker reminder "team meeting tomorrow at 2pm" --channel C1234567890
+```
+
+### Reminders
+List your saved reminders and "Later" items:
+```bash
+# List all saved items (reminders and saved messages)
+uv run slacker reminders
+
+# List only reminders (exclude saved messages)
+uv run slacker reminders --reminders-only
+
+# Limit number of results
+uv run slacker reminders --limit 10
+```
+
 ## Use Cases
 
 ### Explore the API
@@ -105,6 +133,19 @@ uv run slacker api search.messages --params '{"query":"important"}'
 ### Upload files
 ```bash
 uv run slacker api files.upload --data '{"channels":"general","content":"File content","filename":"test.txt"}'
+```
+
+### Manage reminders
+```bash
+# Create reminders using natural language
+uv run slacker reminder "me to follow up with team tomorrow at 10am"
+uv run slacker reminder "check on deployment in 2 hours"
+
+# List all reminders and saved messages
+uv run slacker reminders
+
+# List only reminders
+uv run slacker reminders --reminders-only
 ```
 
 ### Use with curl
