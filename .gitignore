@@ -1,0 +1,8 @@
+*.token
+.env
+.slack-token
+.slack-auth
+.slack-auth-*
+.venv/
+__pycache__/
+*.pyc
