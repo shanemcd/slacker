@@ -23,6 +23,10 @@ That's it!
 
 ## Commands
 
+**Note:** All commands below show `slacker <command>`. Prefix with:
+- `uvx --from "git+https://github.com/shanemcd/slacker"` for no-install usage
+- `uv run` if you've installed locally (see Local Development Quick Start above)
+
 ### Login
 Extract credentials from your browser:
 ```bash
@@ -100,6 +104,62 @@ uv run slacker reminders --reminders-only
 uv run slacker reminders --limit 10
 ```
 
+### DMs
+List direct messages with natural language time filtering:
+```bash
+# List today's DM activity (default)
+uv run slacker dms
+
+# List DMs since a specific time using natural language
+uv run slacker dms --since "yesterday"
+uv run slacker dms --since "2 days ago"
+uv run slacker dms --since "last Monday"
+uv run slacker dms --since "3 hours ago"
+
+# Specific date
+uv run slacker dms --since "2025-10-20"
+```
+
+Features:
+- Shows individual and group DMs
+- Displays actual Slack usernames (@handles)
+- Shows message direction (incoming/outgoing)
+- Message preview (80 characters)
+- Natural language date parsing using `dateparser`
+
+### Activity
+View your Slack activity feed with enriched details:
+```bash
+# View all activity (mentions, threads, reactions)
+uv run slacker activity
+
+# Filter by activity type
+uv run slacker activity --tab mentions
+uv run slacker activity --tab threads
+uv run slacker activity --tab reactions
+```
+
+Features:
+- **Actual usernames** (e.g., @alice, @bob) - not generic @user
+- **Actual team names** (e.g., @backend-team, @platform-team) - not generic @team
+- **Rendered emojis** (🍻, 👍, 🎉) for standard emojis
+- **Message previews** (80 characters of actual message text)
+- **Clean formatting** (Slack markup removed, URLs cleaned up)
+- Unread indicator (● for unread items)
+- Fast async performance (~2 seconds for 50 items)
+
+Example output:
+```
+Activity Feed - Mentions (50 items):
+
+  [mention] 2025-10-21 16:06 in #engineering - by @alice
+    We are investigating the deployment issue in https://github.com/company/repo/iss...
+  [mention] 2025-10-21 15:25 in #team-backend - by @bob
+    @backend-team @alice @charlie @dave The component team's updates on their assign...
+● [reaction] 2025-10-21 09:35 in #@charlie - 🤣 from @charlie
+    that was a great demo today...
+```
+
 ### Record
 Record network traffic while interacting with Slack for reverse engineering:
 ```bash
@@ -148,6 +208,12 @@ All major commands support JSON output for programmatic processing:
 # Get reminders as structured JSON
 uv run slacker reminders --output json
 
+# Get DMs in JSON format
+uv run slacker dms --since "yesterday" --output json
+
+# Get activity feed in JSON
+uv run slacker activity --tab mentions --output json
+
 # Authentication info in JSON
 uv run slacker whoami --output json
 
@@ -167,6 +233,14 @@ uv run slacker reminders --output json | jq '.counts.uncompleted_overdue_count'
 # Export saved messages to file
 uv run slacker reminders --output json | \
   jq -r '.items[] | select(.type == "message") | "\(.date): \(.message)"' > saved.txt
+
+# Get unread mentions with usernames
+uv run slacker activity --tab mentions --output json | \
+  jq '.items[] | select(.is_unread == true) | {channel: .channel_name, user: .username, message: .message_text}'
+
+# Count DMs from yesterday
+uv run slacker dms --since "yesterday" --output json | \
+  jq '.count.dms + .count.group_dms'
 ```
 
 ## Use Cases
@@ -215,6 +289,34 @@ uv run slacker reminders
 
 # List only reminders
 uv run slacker reminders --reminders-only
+```
+
+### Check your activity
+```bash
+# Morning routine: check all mentions and threads
+uv run slacker activity
+
+# See who's reacting to your messages
+uv run slacker activity --tab reactions
+
+# Check only @mentions to catch up quickly
+uv run slacker activity --tab mentions
+
+# Get unread mentions as JSON for processing
+uv run slacker activity --tab mentions --output json | \
+  jq '.items[] | select(.is_unread == true) | {channel: .channel_name, user: .username}'
+```
+
+### Navigate your DMs
+```bash
+# Check today's DM activity
+uv run slacker dms
+
+# Catch up on weekend messages
+uv run slacker dms --since "last Friday"
+
+# After a meeting: check what you missed
+uv run slacker dms --since "2 hours ago"
 ```
 
 ### Reverse engineer Slack features
