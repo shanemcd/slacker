@@ -48,94 +48,94 @@ uv run slacker whoami
 ### Login
 Extract credentials from your browser:
 ```bash
-uv run slacker login https://your-workspace.slack.com
+slacker login https://your-workspace.slack.com
 
 # Save to custom location (default: ~/.config/slacker/credentials)
-uv run slacker --auth-file /path/to/custom/location login https://workspace.slack.com
+slacker --auth-file /path/to/custom/location login https://workspace.slack.com
 ```
 
 ### Whoami
 Test authentication and show your user info:
 ```bash
-uv run slacker whoami
+slacker whoami
 
 # Use custom auth file
-uv run slacker --auth-file /path/to/custom/location whoami
+slacker --auth-file /path/to/custom/location whoami
 ```
 
 ### API
 Call any Slack API endpoint:
 ```bash
 # GET request with query parameters
-uv run slacker api users.list --params '{"limit": 10}'
+slacker api users.list --params '{"limit": 10}'
 
 # POST request with data
-uv run slacker api chat.postMessage --data '{"channel":"general","text":"Hello!"}'
+slacker api chat.postMessage --data '{"channel":"general","text":"Hello!"}'
 
 # GET with multiple parameters
-uv run slacker api conversations.history --params '{"channel":"C1234567890","limit":50}'
+slacker api conversations.history --params '{"channel":"C1234567890","limit":50}'
 
 # Specify method explicitly
-uv run slacker api conversations.list --method GET
+slacker api conversations.list --method GET
 ```
 
 ### Discover
 Explore available Slack API methods:
 ```bash
 # List all API categories
-uv run slacker discover
+slacker discover
 
 # Show all methods (verbose)
-uv run slacker discover --verbose
+slacker discover --verbose
 
 # Filter by category
-uv run slacker discover --category chat
-uv run slacker discover --category users
-uv run slacker discover --category conversations
+slacker discover --category chat
+slacker discover --category users
+slacker discover --category conversations
 ```
 
 ### Reminder
 Create Slack reminders using natural language (just like `/remind` in Slack):
 ```bash
 # Create reminders - Slack parses the text naturally
-uv run slacker reminder "me to call mom tomorrow at 9am"
-uv run slacker reminder "me to review PR in 30 minutes"
-uv run slacker reminder "me to check status next Monday"
+slacker reminder "me to call mom tomorrow at 9am"
+slacker reminder "me to review PR in 30 minutes"
+slacker reminder "me to check status next Monday"
 
 # You can omit "me to" if you prefer
-uv run slacker reminder "call mom tomorrow"
+slacker reminder "call mom tomorrow"
 
 # Send reminder to specific channel (default: your notes channel)
-uv run slacker reminder "team meeting tomorrow at 2pm" --channel C1234567890
+slacker reminder "team meeting tomorrow at 2pm" --channel C1234567890
 ```
 
 ### Reminders
 List your saved reminders and "Later" items:
 ```bash
 # List all saved items (reminders and saved messages)
-uv run slacker reminders
+slacker reminders
 
 # List only reminders (exclude saved messages)
-uv run slacker reminders --reminders-only
+slacker reminders --reminders-only
 
 # Limit number of results
-uv run slacker reminders --limit 10
+slacker reminders --limit 10
 ```
 
 ### DMs
 List direct messages with natural language time filtering:
 ```bash
 # List today's DM activity (default)
-uv run slacker dms
+slacker dms
 
 # List DMs since a specific time using natural language
-uv run slacker dms --since "yesterday"
-uv run slacker dms --since "2 days ago"
-uv run slacker dms --since "last Monday"
-uv run slacker dms --since "3 hours ago"
+slacker dms --since "yesterday"
+slacker dms --since "2 days ago"
+slacker dms --since "last Monday"
+slacker dms --since "3 hours ago"
 
 # Specific date
-uv run slacker dms --since "2025-10-20"
+slacker dms --since "2025-10-20"
 ```
 
 Features:
@@ -149,12 +149,12 @@ Features:
 View your Slack activity feed with enriched details:
 ```bash
 # View all activity (mentions, threads, reactions)
-uv run slacker activity
+slacker activity
 
 # Filter by activity type
-uv run slacker activity --tab mentions
-uv run slacker activity --tab threads
-uv run slacker activity --tab reactions
+slacker activity --tab mentions
+slacker activity --tab threads
+slacker activity --tab reactions
 ```
 
 Features:
@@ -182,22 +182,22 @@ Activity Feed - Mentions (50 items):
 Record network traffic while interacting with Slack for reverse engineering:
 ```bash
 # Interactive mode - prompts for scenario name, press Enter when done
-uv run slacker record https://your-workspace.slack.com
+slacker record https://your-workspace.slack.com
 
 # Non-interactive mode - specify scenario, close browser when done
-uv run slacker record https://workspace.slack.com --scenario save-message --wait-for-close
+slacker record https://workspace.slack.com --scenario save-message --wait-for-close
 
 # With summary to see top domains and paths
-uv run slacker record https://workspace.slack.com --scenario test --summary --wait-for-close
+slacker record https://workspace.slack.com --scenario test --summary --wait-for-close
 
 # Save to custom directory
-uv run slacker record https://workspace.slack.com --scenario test --output-dir ./my-recordings
+slacker record https://workspace.slack.com --scenario test --output-dir ./my-recordings
 
 # Filter to only specific API calls (check summary first to see which domains are used)
-uv run slacker record https://workspace.slack.com --scenario test --filter "edgeapi" --summary
+slacker record https://workspace.slack.com --scenario test --filter "edgeapi" --summary
 
 # Skip response bodies for faster/cleaner recording
-uv run slacker record https://workspace.slack.com --scenario test --no-bodies --summary
+slacker record https://workspace.slack.com --scenario test --no-bodies --summary
 ```
 
 How it works:
@@ -224,40 +224,40 @@ Great for:
 All major commands support JSON output for programmatic processing:
 ```bash
 # Get reminders as structured JSON
-uv run slacker reminders --output json
+slacker reminders --output json
 
 # Get DMs in JSON format
-uv run slacker dms --since "yesterday" --output json
+slacker dms --since "yesterday" --output json
 
 # Get activity feed in JSON
-uv run slacker activity --tab mentions --output json
+slacker activity --tab mentions --output json
 
 # Authentication info in JSON
-uv run slacker whoami --output json
+slacker whoami --output json
 
 # API methods in JSON format
-uv run slacker discover --category chat --output json
+slacker discover --category chat --output json
 ```
 
 Process with `jq`:
 ```bash
 # Extract full message text from saved items
-uv run slacker reminders --output json | \
+slacker reminders --output json | \
   jq '.items[] | select(.type == "message") | .message'
 
 # Get overdue reminder count
-uv run slacker reminders --output json | jq '.counts.uncompleted_overdue_count'
+slacker reminders --output json | jq '.counts.uncompleted_overdue_count'
 
 # Export saved messages to file
-uv run slacker reminders --output json | \
+slacker reminders --output json | \
   jq -r '.items[] | select(.type == "message") | "\(.date): \(.message)"' > saved.txt
 
 # Get unread mentions with usernames
-uv run slacker activity --tab mentions --output json | \
+slacker activity --tab mentions --output json | \
   jq '.items[] | select(.is_unread == true) | {channel: .channel_name, user: .username, message: .message_text}'
 
 # Count DMs from yesterday
-uv run slacker dms --since "yesterday" --output json | \
+slacker dms --since "yesterday" --output json | \
   jq '.count.dms + .count.group_dms'
 ```
 
@@ -267,80 +267,80 @@ uv run slacker dms --since "yesterday" --output json | \
 Discover what's possible:
 ```bash
 # See all available API categories
-uv run slacker discover
+slacker discover
 
 # Explore chat-related methods
-uv run slacker discover --category chat
+slacker discover --category chat
 
 # Call a specific endpoint
-uv run slacker api users.list --params '{"limit": 10}'
+slacker api users.list --params '{"limit": 10}'
 ```
 
 ### Post messages
 ```bash
-uv run slacker api chat.postMessage --data '{"channel":"general","text":"Hello from slacker!"}'
+slacker api chat.postMessage --data '{"channel":"general","text":"Hello from slacker!"}'
 ```
 
 ### List conversations
 ```bash
-uv run slacker api conversations.list --params '{"limit": 100}'
+slacker api conversations.list --params '{"limit": 100}'
 ```
 
 ### Search messages
 ```bash
-uv run slacker api search.messages --params '{"query":"important"}'
+slacker api search.messages --params '{"query":"important"}'
 ```
 
 ### Upload files
 ```bash
-uv run slacker api files.upload --data '{"channels":"general","content":"File content","filename":"test.txt"}'
+slacker api files.upload --data '{"channels":"general","content":"File content","filename":"test.txt"}'
 ```
 
 ### Manage reminders
 ```bash
 # Create reminders using natural language
-uv run slacker reminder "me to follow up with team tomorrow at 10am"
-uv run slacker reminder "check on deployment in 2 hours"
+slacker reminder "me to follow up with team tomorrow at 10am"
+slacker reminder "check on deployment in 2 hours"
 
 # List all reminders and saved messages
-uv run slacker reminders
+slacker reminders
 
 # List only reminders
-uv run slacker reminders --reminders-only
+slacker reminders --reminders-only
 ```
 
 ### Check your activity
 ```bash
 # Morning routine: check all mentions and threads
-uv run slacker activity
+slacker activity
 
 # See who's reacting to your messages
-uv run slacker activity --tab reactions
+slacker activity --tab reactions
 
 # Check only @mentions to catch up quickly
-uv run slacker activity --tab mentions
+slacker activity --tab mentions
 
 # Get unread mentions as JSON for processing
-uv run slacker activity --tab mentions --output json | \
+slacker activity --tab mentions --output json | \
   jq '.items[] | select(.is_unread == true) | {channel: .channel_name, user: .username}'
 ```
 
 ### Navigate your DMs
 ```bash
 # Check today's DM activity
-uv run slacker dms
+slacker dms
 
 # Catch up on weekend messages
-uv run slacker dms --since "last Friday"
+slacker dms --since "last Friday"
 
 # After a meeting: check what you missed
-uv run slacker dms --since "2 hours ago"
+slacker dms --since "2 hours ago"
 ```
 
 ### Reverse engineer Slack features
 ```bash
 # Record network traffic while using a feature (with summary)
-uv run slacker record https://workspace.slack.com --summary --wait-for-close
+slacker record https://workspace.slack.com --summary --wait-for-close
 
 # Then:
 # 1. Enter scenario name (e.g., "save-for-later")
