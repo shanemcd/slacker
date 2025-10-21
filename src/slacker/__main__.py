@@ -23,7 +23,8 @@ from .commands import (
     cmd_reminder,
     cmd_discover,
     cmd_record,
-    cmd_login
+    cmd_login,
+    cmd_activity
 )
 
 # Import dependencies
@@ -151,6 +152,11 @@ def main():
         choices=['GET', 'POST'],
         help='HTTP method to use (default: POST if --data provided, GET otherwise)'
     )
+    api_parser.add_argument(
+        '--workspace', '-w',
+        action='store_true',
+        help='Use workspace domain instead of slack.com (required for enterprise-specific endpoints like activity.feed)'
+    )
     api_parser.set_defaults(func=cmd_api)
 
     # Discover command
@@ -217,6 +223,20 @@ def main():
         help='Show DMs since this time (default: today). Examples: "yesterday", "2 days ago", "last Monday", "3 hours ago"'
     )
     dms_parser.set_defaults(func=cmd_dms)
+
+    # Activity command
+    activity_parser = subparsers.add_parser(
+        'activity',
+        help='Show Slack activity feed',
+        description='Show mentions, threads, and reactions from your Slack activity'
+    )
+    activity_parser.add_argument(
+        '--tab', '-t',
+        choices=['all', 'mentions', 'threads', 'reactions'],
+        default='all',
+        help='Activity tab to show (default: all)'
+    )
+    activity_parser.set_defaults(func=cmd_activity)
 
     args = parser.parse_args()
 

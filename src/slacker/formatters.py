@@ -1,7 +1,46 @@
 """Output formatters using Strategy Pattern"""
 
 import json
+import emoji
+import re
 from abc import ABC, abstractmethod
+
+
+def clean_slack_message(text):
+    """Clean up Slack markup from message text
+
+    Args:
+        text: Raw Slack message text with markup
+
+    Returns:
+        str: Cleaned message text
+    """
+    if not text:
+        return text
+
+    # Note: User mentions <@USER_ID> and usergroup mentions <!subteam^ID>
+    # are already replaced with actual names in enrichment, so we don't convert them here
+
+    # Convert special mentions
+    text = text.replace('<!channel>', '@channel')
+    text = text.replace('<!here>', '@here')
+    text = text.replace('<!everyone>', '@everyone')
+
+    # Convert links <https://url|text> to just text or <https://url> to url
+    text = re.sub(r'<(https?://[^|>]+)\|([^>]+)>', r'\2', text)  # <url|text> -> text
+    text = re.sub(r'<(https?://[^>]+)>', r'\1', text)  # <url> -> url
+
+    # Convert emoji codes to actual emojis (keep custom emoji codes as-is)
+    def replace_emoji(match):
+        emoji_code = match.group(0)
+        # Try to convert to actual emoji
+        converted = emoji.emojize(emoji_code, language='alias')
+        # If it didn't convert (custom emoji), keep the original code
+        return converted
+
+    text = re.sub(r':[\w\-+]+:', replace_emoji, text)
+
+    return text.strip()
 
 
 class OutputFormatter(ABC):
@@ -25,6 +64,11 @@ class OutputFormatter(ABC):
     @abstractmethod
     def format_dms(self, dms, group_dms, counts):
         """Format DM list"""
+        pass
+
+    @abstractmethod
+    def format_activity(self, items, tab):
+        """Format activity feed"""
         pass
 
     @abstractmethod
@@ -119,6 +163,90 @@ class TextFormatter(OutputFormatter):
                 text_preview = dm['text'][:80] if dm['text'] else "[no text]"
                 print(f"  {dm['time']} {direction}: {text_preview}")
 
+    def format_activity(self, items, tab):
+        if not items:
+            print(f"No {tab} activity found.")
+            return
+
+        # Map types to human-readable names
+        type_names = {
+            'at_user': 'mention',
+            'at_user_group': 'group mention',
+            'at_channel': '@channel',
+            'at_everyone': '@everyone',
+            'keyword': 'keyword',
+            'message_reaction': 'reaction',
+            'thread_v2': 'thread reply',
+        }
+
+        print(f"Activity Feed - {tab.title()} ({len(items)} items):\n")
+
+        for item in items:
+            is_unread = "●" if item.get('is_unread') else " "
+            item_data = item.get('item', {})
+            item_type = item_data.get('type', 'unknown')
+            type_name = type_names.get(item_type, item_type)
+
+            # Get enriched data
+            channel_name = item.get('channel_name', 'unknown')
+            username = item.get('username', '')
+            emoji_name = item.get('emoji', '')
+            message_text = item.get('message_text', '')
+
+            # Different structure for thread_v2
+            if item_type == 'thread_v2':
+                bundle_info = item_data.get('bundle_info', {})
+                payload = bundle_info.get('payload', {})
+                thread_entry = payload.get('thread_entry', {})
+                ts = thread_entry.get('latest_ts', '')
+            else:
+                message = item_data.get('message', {})
+                ts = message.get('ts', '')
+
+            # Format timestamp if available
+            if ts:
+                import datetime
+                try:
+                    dt = datetime.datetime.fromtimestamp(float(ts))
+                    time_str = dt.strftime('%Y-%m-%d %H:%M')
+                except:
+                    time_str = ts
+            else:
+                time_str = 'unknown'
+
+            # Build detailed output
+            details = []
+            if item_type == 'message_reaction' and emoji_name:
+                # Convert emoji code to actual emoji
+                emoji_code = f":{emoji_name}:"
+                emoji_str = emoji.emojize(emoji_code, language='alias')
+                # If it didn't convert (custom emoji), show name without colons
+                if emoji_str == emoji_code:
+                    emoji_str = emoji_name  # Just show the name
+                details.append(emoji_str)
+                if username:
+                    details.append(f"from @{username}")
+            elif item_type in ['at_user', 'at_user_group', 'at_channel', 'at_everyone', 'keyword'] and username:
+                details.append(f"by @{username}")
+
+            detail_str = " ".join(details)
+
+            # Build output line
+            output_parts = [f"{is_unread} [{type_name}] {time_str} in #{channel_name}"]
+            if detail_str:
+                output_parts.append(f"- {detail_str}")
+
+            # Add message preview if available (truncate to 80 chars)
+            if message_text:
+                # Clean up Slack markup
+                cleaned = clean_slack_message(message_text)
+                preview = cleaned.replace('\n', ' ')[:80]
+                if len(cleaned) > 80:
+                    preview += "..."
+                output_parts.append(f"\n    {preview}")
+
+            print(" ".join(output_parts))
+
     def format_error(self, message):
         print(f"✗ {message}")
 
@@ -160,6 +288,15 @@ class JSONFormatter(OutputFormatter):
             'today_dms': dms,
             'today_group_dms': group_dms,
             'count': counts
+        }
+        print(json.dumps(output, indent=2))
+
+    def format_activity(self, items, tab):
+        # Include message_text in JSON output for consumers
+        output = {
+            'tab': tab,
+            'count': len(items),
+            'items': items
         }
         print(json.dumps(output, indent=2))
 

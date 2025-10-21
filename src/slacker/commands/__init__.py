@@ -9,6 +9,7 @@ from .reminder import cmd_reminder
 from .discover import cmd_discover
 from .record import cmd_record
 from .login import cmd_login
+from .activity import cmd_activity
 
 __all__ = [
     'cmd_whoami',
@@ -19,4 +20,5 @@ __all__ = [
     'cmd_discover',
     'cmd_record',
     'cmd_login',
+    'cmd_activity',
 ]

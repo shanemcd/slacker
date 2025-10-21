@@ -16,6 +16,7 @@ def cmd_api(args):
             - method: HTTP method (GET or POST)
             - data: JSON data for POST requests
             - params: JSON params for GET requests
+            - workspace: Use workspace domain instead of slack.com
     """
     creds = read_auth_file(args.auth_file)
 
@@ -40,8 +41,26 @@ def cmd_api(args):
     # Determine method (POST if data provided, GET otherwise)
     method = args.method or ('POST' if data else 'GET')
 
+    # Get workspace URL if --workspace flag is set
+    workspace_url = None
+    if getattr(args, 'workspace', False):
+        # Get workspace URL from auth.test
+        auth_result = call_slack_api('auth.test', creds['token'], creds['cookie'])
+        if auth_result.get('ok'):
+            workspace_url = auth_result.get('url', '').rstrip('/')
+
     # Make the API call
-    result = call_slack_api(args.endpoint, creds['token'], creds['cookie'], method=method, data=data, params=params)
+    # Note: use_form_data is not exposed via CLI, only used internally
+    result = call_slack_api(
+        args.endpoint,
+        creds['token'],
+        creds['cookie'],
+        method=method,
+        data=data,
+        params=params,
+        workspace_url=workspace_url,
+        use_form_data=False
+    )
 
     # Pretty print the result
     print(json.dumps(result, indent=2))
