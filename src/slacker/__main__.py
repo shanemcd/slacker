@@ -8,6 +8,7 @@ import json
 import sys
 import argparse
 from pathlib import Path
+from abc import ABC, abstractmethod
 
 try:
     from playwright.sync_api import sync_playwright
@@ -22,6 +23,147 @@ except ImportError:
     print("Error: httpx not installed")
     print("Install with: uv sync")
     sys.exit(1)
+
+
+# Output Formatters using Strategy Pattern
+class OutputFormatter(ABC):
+    """Abstract base class for output formatters"""
+
+    @abstractmethod
+    def format_auth_test(self, result, auth_file=None):
+        """Format authentication test results"""
+        pass
+
+    @abstractmethod
+    def format_reminders(self, items, counts):
+        """Format reminders/saved items list"""
+        pass
+
+    @abstractmethod
+    def format_discover(self, methods, categories, total, category_filter=None, verbose=False):
+        """Format API methods discovery results"""
+        pass
+
+    @abstractmethod
+    def format_error(self, message):
+        """Format error message"""
+        pass
+
+
+class TextFormatter(OutputFormatter):
+    """Human-readable text output formatter"""
+
+    def format_auth_test(self, result, auth_file=None):
+        if auth_file:
+            print(f"Testing authentication from {auth_file}...\n")
+
+        if result.get('ok'):
+            print("✓ Authentication successful!\n")
+            print(f"  User:      {result.get('user')}")
+            print(f"  User ID:   {result.get('user_id')}")
+            print(f"  Team:      {result.get('team')}")
+            print(f"  Team ID:   {result.get('team_id')}")
+            print(f"  URL:       {result.get('url')}")
+        else:
+            print(f"✗ Authentication failed: {result.get('error')}")
+            print("\nYour credentials may have expired. Run 'slacker login' again.")
+
+    def format_reminders(self, items, counts):
+        if not items:
+            print("No saved items found.")
+            return
+
+        print(f"Found {len(items)} saved items:\n")
+
+        for item_data in items:
+            if item_data['type'] == 'reminder':
+                print(f"[{item_data['state']}] Reminder: {item_data['text']}")
+                print(f"  Due: {item_data['due_date']}")
+                print()
+            else:
+                print(f"[{item_data['state']}] Saved message in #{item_data['channel_name']}")
+                print(f"  Date: {item_data['date']}")
+                if item_data['message']:
+                    print(f"  Message: {item_data['message']}")
+                print(f"  Link: {item_data['link']}")
+                print()
+
+        print(f"Summary:")
+        print(f"  Total: {counts.get('total_count', 0)}")
+        print(f"  Uncompleted: {counts.get('uncompleted_count', 0)}")
+        print(f"  Overdue: {counts.get('uncompleted_overdue_count', 0)}")
+        print(f"  Completed: {counts.get('completed_count', 0)}")
+
+    def format_discover(self, methods, categories, total, category_filter=None, verbose=False):
+        print(f"\nFound {total} API methods:\n")
+
+        if category_filter:
+            if category_filter in categories:
+                print(f"Category: {category_filter}")
+                for method in categories[category_filter]:
+                    print(f"  - {method}")
+            else:
+                print(f"Category '{category_filter}' not found.")
+                print(f"Available categories: {', '.join(sorted(categories.keys()))}")
+        else:
+            for category in sorted(categories.keys()):
+                print(f"{category} ({len(categories[category])} methods)")
+                if verbose:
+                    for method in categories[category]:
+                        print(f"  - {method}")
+
+    def format_error(self, message):
+        print(f"✗ {message}")
+
+
+class JSONFormatter(OutputFormatter):
+    """JSON output formatter"""
+
+    def format_auth_test(self, result, auth_file=None):
+        print(json.dumps(result, indent=2))
+
+    def format_reminders(self, items, counts):
+        output = {
+            'items': items,
+            'counts': counts
+        }
+        print(json.dumps(output, indent=2))
+
+    def format_discover(self, methods, categories, total, category_filter=None, verbose=False):
+        if category_filter:
+            if category_filter in categories:
+                output = {
+                    'category': category_filter,
+                    'methods': categories[category_filter]
+                }
+            else:
+                output = {
+                    'error': f"Category '{category_filter}' not found",
+                    'available_categories': sorted(categories.keys())
+                }
+        else:
+            output = {
+                'total_methods': total,
+                'categories': categories
+            }
+        print(json.dumps(output, indent=2))
+
+    def format_error(self, message):
+        print(json.dumps({'error': message}, indent=2))
+
+
+def get_formatter(output_format):
+    """Factory function to get the appropriate formatter"""
+    formatters = {
+        'text': TextFormatter,
+        'json': JSONFormatter,
+    }
+
+    formatter_class = formatters.get(output_format)
+    if not formatter_class:
+        raise ValueError(f"Unknown output format: {output_format}")
+
+    return formatter_class()
 
 
 def read_auth_file(auth_file):
@@ -82,21 +224,13 @@ def call_slack_api(endpoint, token, cookie, method='GET', data=None, params=None
 def cmd_whoami(args):
     """Test authentication and show user info"""
     creds = read_auth_file(args.auth_file)
-
-    print(f"Testing authentication from {args.auth_file}...\n")
+    formatter = get_formatter(args.output)
 
     result = call_slack_api('auth.test', creds['token'], creds['cookie'])
 
-    if result.get('ok'):
-        print("✓ Authentication successful!\n")
-        print(f"  User:      {result.get('user')}")
-        print(f"  User ID:   {result.get('user_id')}")
-        print(f"  Team:      {result.get('team')}")
-        print(f"  Team ID:   {result.get('team_id')}")
-        print(f"  URL:       {result.get('url')}")
-    else:
-        print(f"✗ Authentication failed: {result.get('error')}")
-        print("\nYour credentials may have expired. Run 'slacker login' again.")
+    formatter.format_auth_test(result, auth_file=args.auth_file)
+
+    if not result.get('ok'):
         sys.exit(1)
 
 
@@ -341,6 +475,7 @@ def get_message_content(channel_id, timestamp, token, cookie):
 def cmd_reminders_list(args):
     """List saved reminders and later items"""
     creds = read_auth_file(args.auth_file)
+    formatter = get_formatter(args.output)
 
     # Call saved.list API
     data = {
@@ -352,7 +487,7 @@ def cmd_reminders_list(args):
     result = call_slack_api('saved.list', creds['token'], creds['cookie'], method='POST', data=data)
 
     if not result.get('ok'):
-        print(f"✗ Failed to list reminders: {result.get('error')}")
+        formatter.format_error(f"Failed to list reminders: {result.get('error')}")
         sys.exit(1)
 
     saved_items = result.get('saved_items', [])
@@ -361,16 +496,13 @@ def cmd_reminders_list(args):
     if args.reminders_only:
         saved_items = [item for item in saved_items if item.get('item_type') == 'reminder']
 
-    if not saved_items:
-        print("No saved items found.")
-        return
-
-    # Display results
-    print(f"Found {len(saved_items)} saved items:\n")
-
     # Get workspace URL for building links
     auth_result = call_slack_api('auth.test', creds['token'], creds['cookie'])
     workspace_url = auth_result.get('url', 'https://slack.com') if auth_result.get('ok') else 'https://slack.com'
+
+    # Build structured output
+    import datetime
+    output_items = []
 
     for item in saved_items:
         item_type = item.get('item_type', 'unknown')
@@ -387,13 +519,16 @@ def cmd_reminders_list(args):
                     pass
 
             # Format due date
-            import datetime
             due_ts = item.get('date_due', 0)
             due_date = datetime.datetime.fromtimestamp(due_ts).strftime('%Y-%m-%d %H:%M')
 
-            print(f"[{state}] Reminder: {text}")
-            print(f"  Due: {due_date}")
-            print()
+            output_items.append({
+                'type': 'reminder',
+                'state': state,
+                'text': text,
+                'due_date': due_date,
+                'due_timestamp': due_ts
+            })
         else:
             # Saved message
             channel_id = item.get('item_id', 'unknown')
@@ -406,40 +541,38 @@ def cmd_reminders_list(args):
             message_text = get_message_content(channel_id, ts, creds['token'], creds['cookie'])
 
             # Format timestamp
-            import datetime
             try:
                 msg_ts = float(ts)
                 msg_date = datetime.datetime.fromtimestamp(msg_ts).strftime('%Y-%m-%d %H:%M')
             except:
                 msg_date = ts
+                msg_ts = None
 
             # Build message link
             ts_link = ts.replace('.', '')
             message_link = f"{workspace_url}archives/{channel_id}/p{ts_link}"
 
-            print(f"[{state}] Saved message in #{channel_name}")
-            print(f"  Date: {msg_date}")
-            if message_text:
-                # Truncate message if too long
-                preview = message_text[:100] + '...' if len(message_text) > 100 else message_text
-                # Replace newlines with spaces for preview
-                preview = preview.replace('\n', ' ')
-                print(f"  Preview: {preview}")
-            print(f"  Link: {message_link}")
-            print()
+            output_items.append({
+                'type': 'message',
+                'state': state,
+                'channel_id': channel_id,
+                'channel_name': channel_name,
+                'message': message_text,
+                'date': msg_date,
+                'timestamp': msg_ts,
+                'link': message_link
+            })
 
-    # Show counts
-    counts = result.get('counts', {})
-    print(f"Summary:")
-    print(f"  Total: {counts.get('total_count', 0)}")
-    print(f"  Uncompleted: {counts.get('uncompleted_count', 0)}")
-    print(f"  Overdue: {counts.get('uncompleted_overdue_count', 0)}")
-    print(f"  Completed: {counts.get('completed_count', 0)}")
+    # Format and output results
+    formatter.format_reminders(output_items, result.get('counts', {}))
 
 
 def cmd_discover(args):
     """Discover available Slack API methods by scraping documentation"""
-    print("Discovering Slack API methods...")
+    formatter = get_formatter(args.output)
+
+    if args.output == 'text':
+        print("Discovering Slack API methods...")
 
     try:
         with httpx.Client() as client:
@@ -470,32 +603,17 @@ def cmd_discover(args):
                     categories[category] = []
                 categories[category].append(method)
 
-            # Display results
-            print(f"\nFound {len(methods)} API methods:\n")
+            # Format and output results
+            formatter.format_discover(methods, categories, len(methods),
+                                     category_filter=args.category, verbose=args.verbose)
 
-            if args.category:
-                # Filter by category
-                if args.category in categories:
-                    print(f"Category: {args.category}")
-                    for method in categories[args.category]:
-                        print(f"  - {method}")
-                else:
-                    print(f"Category '{args.category}' not found.")
-                    print(f"Available categories: {', '.join(sorted(categories.keys()))}")
-            else:
-                # Show all categories
-                for category in sorted(categories.keys()):
-                    print(f"{category} ({len(categories[category])} methods)")
-                    if args.verbose:
-                        for method in categories[category]:
-                            print(f"  - {method}")
-
-                if not args.verbose:
-                    print(f"\nUse --verbose to see all methods, or --category <name> to filter by category")
-                    print(f"Example: slacker discover --category chat")
+            # Show additional help text for text output
+            if args.output == 'text' and not args.category and not args.verbose:
+                print(f"\nUse --verbose to see all methods, or --category <name> to filter by category")
+                print(f"Example: slacker discover --category chat")
 
     except httpx.HTTPError as e:
-        print(f"Error fetching API documentation: {e}")
+        formatter.format_error(f"Error fetching API documentation: {e}")
         sys.exit(1)
 
 
@@ -541,6 +659,12 @@ def main():
         '--auth-file',
         default=None,
         help=f'Auth file location (default: {get_default_auth_file()})'
+    )
+    parser.add_argument(
+        '--output', '-o',
+        choices=['text', 'json'],
+        default='text',
+        help='Output format (default: text)'
     )
 
     subparsers = parser.add_subparsers(dest='command', help='Command to run')
