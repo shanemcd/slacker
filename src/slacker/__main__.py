@@ -208,8 +208,13 @@ def main():
     # DMs command
     dms_parser = subparsers.add_parser(
         'dms',
-        help='List today\'s DM conversations',
-        description='List all DM and group DM conversations from today with usernames'
+        help='List DM conversations',
+        description='List all DM and group DM conversations since a given time with usernames'
+    )
+    dms_parser.add_argument(
+        '--since', '-s',
+        default='today',
+        help='Show DMs since this time (default: today). Examples: "yesterday", "2 days ago", "last Monday", "3 hours ago"'
     )
     dms_parser.set_defaults(func=cmd_dms)
 

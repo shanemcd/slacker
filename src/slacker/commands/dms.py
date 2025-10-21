@@ -1,7 +1,8 @@
-"""DMs command - list today's DM conversations"""
+"""DMs command - list DM conversations since a given time"""
 
 import sys
 import datetime
+import dateparser
 from ..auth import read_auth_file
 from ..api import call_slack_api
 from ..utils import get_username
@@ -9,19 +10,30 @@ from ..formatters import get_formatter
 
 
 def cmd_dms(args):
-    """List today's DM conversations
+    """List DM conversations since a given time
 
     Args:
         args: Parsed command-line arguments
             - auth_file: Path to authentication file
             - output: Output format ('text' or 'json')
+            - since: Natural language time expression (default: 'today')
     """
     creds = read_auth_file(args.auth_file)
     formatter = get_formatter(args.output)
 
-    # Get today's start timestamp
-    today_start = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_ts = today_start.timestamp()
+    # Parse the --since parameter
+    since_text = getattr(args, 'since', 'today')
+    since_dt = dateparser.parse(since_text, settings={'PREFER_DATES_FROM': 'past'})
+
+    if since_dt is None:
+        formatter.format_error(f"Could not parse time expression: '{since_text}'")
+        sys.exit(1)
+
+    # If parsing "today", make it start of day
+    if since_text.lower() == 'today':
+        since_dt = since_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    since_ts = since_dt.timestamp()
 
     # Call client.dms API
     data = {
@@ -48,8 +60,8 @@ def cmd_dms(args):
         message = im.get('message', {})
         msg_ts = float(message.get('ts', 0))
 
-        # Filter to today's messages
-        if msg_ts < today_ts:
+        # Filter to messages since the specified time
+        if msg_ts < since_ts:
             continue
 
         user_id = message.get('user', '')
@@ -76,8 +88,8 @@ def cmd_dms(args):
         message = mpim.get('message', {})
         msg_ts = float(message.get('ts', 0))
 
-        # Filter to today's messages
-        if msg_ts < today_ts:
+        # Filter to messages since the specified time
+        if msg_ts < since_ts:
             continue
 
         user_id = message.get('user', '')
