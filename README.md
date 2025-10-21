@@ -100,6 +100,75 @@ uv run slacker reminders --reminders-only
 uv run slacker reminders --limit 10
 ```
 
+### Record
+Record network traffic while interacting with Slack for reverse engineering:
+```bash
+# Interactive mode - prompts for scenario name, press Enter when done
+uv run slacker record https://your-workspace.slack.com
+
+# Non-interactive mode - specify scenario, close browser when done
+uv run slacker record https://workspace.slack.com --scenario save-message --wait-for-close
+
+# With summary to see top domains and paths
+uv run slacker record https://workspace.slack.com --scenario test --summary --wait-for-close
+
+# Save to custom directory
+uv run slacker record https://workspace.slack.com --scenario test --output-dir ./my-recordings
+
+# Filter to only specific API calls (check summary first to see which domains are used)
+uv run slacker record https://workspace.slack.com --scenario test --filter "edgeapi" --summary
+
+# Skip response bodies for faster/cleaner recording
+uv run slacker record https://workspace.slack.com --scenario test --no-bodies --summary
+```
+
+How it works:
+1. Opens a browser to your Slack workspace
+2. Prompts you to name the scenario (e.g., "save-message", "create-reminder")
+3. Records all network requests/responses while you interact
+4. **Interactive mode**: Press Enter when done to save
+5. **Non-interactive mode** (`--wait-for-close`): Close the browser window when done
+6. Outputs to `./recordings/{scenario}_{timestamp}.json`
+
+Tips:
+- Use `--no-bodies` to skip response body capture (faster, cleaner)
+- Use `--summary` first to see which domains Slack is using, then filter for them
+- Use `--wait-for-close` for non-interactive shells or if you prefer closing the browser
+- The tool auto-detects non-interactive environments (pipes, cron, etc.)
+
+Great for:
+- Discovering undocumented API endpoints
+- Understanding request/response payloads
+- Reverse engineering Slack features
+- Building new automation tools
+
+### JSON Output
+All major commands support JSON output for programmatic processing:
+```bash
+# Get reminders as structured JSON
+uv run slacker reminders --output json
+
+# Authentication info in JSON
+uv run slacker whoami --output json
+
+# API methods in JSON format
+uv run slacker discover --category chat --output json
+```
+
+Process with `jq`:
+```bash
+# Extract full message text from saved items
+uv run slacker reminders --output json | \
+  jq '.items[] | select(.type == "message") | .message'
+
+# Get overdue reminder count
+uv run slacker reminders --output json | jq '.counts.uncompleted_overdue_count'
+
+# Export saved messages to file
+uv run slacker reminders --output json | \
+  jq -r '.items[] | select(.type == "message") | "\(.date): \(.message)"' > saved.txt
+```
+
 ## Use Cases
 
 ### Explore the API
@@ -146,6 +215,27 @@ uv run slacker reminders
 
 # List only reminders
 uv run slacker reminders --reminders-only
+```
+
+### Reverse engineer Slack features
+```bash
+# Record network traffic while using a feature (with summary)
+uv run slacker record https://workspace.slack.com --summary --wait-for-close
+
+# Then:
+# 1. Enter scenario name (e.g., "save-for-later")
+# 2. Use the feature in Slack
+# 3. Close the browser window when done
+# 4. Review the summary to see which APIs were called
+
+# Inspect the recorded requests
+cat recordings/save-for-later_*.json | jq '.requests[] | select(.type == "request") | .data.url'
+
+# Find specific API calls (adjust domain based on summary output)
+cat recordings/save-for-later_*.json | jq '.requests[] | select(.data.url | contains("edgeapi"))'
+
+# Extract POST data from API calls
+cat recordings/save-for-later_*.json | jq '.requests[] | select(.type == "request" and .data.method == "POST") | {url: .data.url, data: .data.post_data}'
 ```
 
 ### Use with curl
