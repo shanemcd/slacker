@@ -2,24 +2,42 @@
 
 Automate Slack API calls using your browser session credentials.
 
-## Quick Start
+## No-Install Quick Start
+
+Try it without installing anything (requires [uv](https://astral.sh/uv)):
 
 ```bash
 # 1. Install uv if you don't have it
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Install dependencies and playwright browser
+# 2. Extract credentials (installs playwright browser on first run)
+uvx --from "git+https://github.com/shanemcd/slacker" slacker login https://your-workspace.slack.com
+
+# 3. Try it out!
+uvx --from "git+https://github.com/shanemcd/slacker" slacker whoami
+uvx --from "git+https://github.com/shanemcd/slacker" slacker activity
+uvx --from "git+https://github.com/shanemcd/slacker" slacker reminders
+```
+
+That's it! No cloning, no manual installation. All commands in this README work with `uvx --from "git+https://github.com/shanemcd/slacker"`.
+
+## Local Development Quick Start
+
+For local development or if you prefer a local install:
+
+```bash
+# 1. Clone and install
+git clone https://github.com/shanemcd/slacker
+cd slacker
 uv sync
 uv run playwright install chromium
 
-# 3. Extract credentials
+# 2. Extract credentials
 uv run slacker login https://your-workspace.slack.com
 
-# 4. Test authentication
+# 3. Test authentication
 uv run slacker whoami
 ```
-
-That's it!
 
 ## Commands
 
