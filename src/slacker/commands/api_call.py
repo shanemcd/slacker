@@ -1,0 +1,47 @@
+"""API command - call arbitrary Slack API endpoint"""
+
+import json
+import sys
+from ..auth import read_auth_file
+from ..api import call_slack_api
+
+
+def cmd_api(args):
+    """Call an arbitrary Slack API endpoint
+
+    Args:
+        args: Parsed command-line arguments
+            - auth_file: Path to authentication file
+            - endpoint: API endpoint name (e.g., 'chat.postMessage')
+            - method: HTTP method (GET or POST)
+            - data: JSON data for POST requests
+            - params: JSON params for GET requests
+    """
+    creds = read_auth_file(args.auth_file)
+
+    # Parse data if provided (for POST)
+    data = None
+    if args.data:
+        try:
+            data = json.loads(args.data)
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON data: {e}")
+            sys.exit(1)
+
+    # Parse params if provided (for GET)
+    params = None
+    if args.params:
+        try:
+            params = json.loads(args.params)
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON params: {e}")
+            sys.exit(1)
+
+    # Determine method (POST if data provided, GET otherwise)
+    method = args.method or ('POST' if data else 'GET')
+
+    # Make the API call
+    result = call_slack_api(args.endpoint, creds['token'], creds['cookie'], method=method, data=data, params=params)
+
+    # Pretty print the result
+    print(json.dumps(result, indent=2))
