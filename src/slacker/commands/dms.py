@@ -26,7 +26,7 @@ def cmd_dms(args):
     since_dt = dateparser.parse(since_text, settings={'PREFER_DATES_FROM': 'past'})
 
     if since_dt is None:
-        formatter.format_error(f"Could not parse time expression: '{since_text}'")
+        formatter.format_error(f"Could not parse time expression: '{since_text}'. Try: '8 days ago', 'yesterday', '2025-10-20'")
         sys.exit(1)
 
     # If parsing "today", make it start of day
