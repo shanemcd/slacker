@@ -178,7 +178,7 @@ def main():
 
     # Reminder command
     reminder_parser = subparsers.add_parser(
-        'reminder',
+        'remind',
         help='Create a Slack reminder',
         description='Create a reminder using Slack\'s /remind command with natural language parsing'
     )
