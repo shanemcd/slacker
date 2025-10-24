@@ -4,7 +4,7 @@ import sys
 import datetime
 from ..auth import read_auth_file
 from ..api import call_slack_api
-from ..utils import get_channel_name, get_message_content
+from ..utils import get_channel_name, get_message_content, replace_mentions_in_text
 from ..formatters import get_formatter
 
 
@@ -60,6 +60,9 @@ def cmd_reminders_list(args):
                     text = desc_blocks[0]['elements'][0]['elements'][0]['text']
                 except (KeyError, IndexError):
                     pass
+
+            # Replace user and usergroup mentions with readable names
+            text = replace_mentions_in_text(text, creds['token'], creds['cookie'])
 
             # Format due date
             due_ts = item.get('date_due', 0)

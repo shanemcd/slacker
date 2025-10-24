@@ -1,5 +1,6 @@
 """Utility functions for Slack data retrieval"""
 
+import re
 from .api import call_slack_api
 
 
@@ -53,6 +54,37 @@ def get_channel_name(channel_id, token, cookie):
     return channel_id
 
 
+def replace_mentions_in_text(text, token, cookie):
+    """Replace user and usergroup mentions with readable names
+
+    Args:
+        text: Text containing Slack mentions
+        token: Slack API token
+        cookie: Slack 'd' cookie value
+
+    Returns:
+        str: Text with mentions replaced
+    """
+    if not text:
+        return text
+
+    # Find all user mentions in format <@USER_ID>
+    user_mentions = re.findall(r'<@([A-Z0-9]+)>', text)
+    for user_id in user_mentions:
+        username = get_username(user_id, token, cookie)
+        text = text.replace(f'<@{user_id}>', f'@{username}')
+
+    # Replace usergroup mentions with group names
+    # Format: <!subteam^USERGROUP_ID|@handle> or <!subteam^USERGROUP_ID>
+    usergroup_mentions = re.findall(r'<!subteam\^([A-Z0-9]+)(?:\|@([^>]+))?>', text)
+    for usergroup_id, handle in usergroup_mentions:
+        # If handle is provided in the mention, use it; otherwise use generic @team
+        display_name = f'@{handle}' if handle else '@team'
+        text = re.sub(rf'<!subteam\^{usergroup_id}(?:\|@[^>]+)?>', display_name, text)
+
+    return text
+
+
 def get_message_content(channel_id, timestamp, token, cookie):
     """Get message content from channel and timestamp
 
@@ -83,6 +115,9 @@ def get_message_content(channel_id, timestamp, token, cookie):
                                 for elem in element.get('elements', []):
                                     if elem.get('type') == 'text':
                                         text += elem.get('text', '')
+
+            # Replace user and usergroup mentions with readable names
+            text = replace_mentions_in_text(text, token, cookie)
 
             return text
     except:

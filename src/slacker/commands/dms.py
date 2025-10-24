@@ -5,7 +5,7 @@ import datetime
 import dateparser
 from ..auth import read_auth_file
 from ..api import call_slack_api
-from ..utils import get_username
+from ..utils import get_username, replace_mentions_in_text
 from ..formatters import get_formatter
 
 
@@ -73,12 +73,15 @@ def cmd_dms(args):
         # Format timestamp
         msg_time = datetime.datetime.fromtimestamp(msg_ts).strftime('%H:%M')
 
+        # Get message text and replace mentions
+        text = replace_mentions_in_text(message.get('text', ''), creds['token'], creds['cookie'])
+
         dms.append({
             'dm_id': im.get('id', ''),
             'time': msg_time,
             'from_you': from_you,
             'username': username,
-            'text': message.get('text', ''),
+            'text': text,
             'has_files': bool(message.get('files'))
         })
 
@@ -101,12 +104,15 @@ def cmd_dms(args):
         # Format timestamp
         msg_time = datetime.datetime.fromtimestamp(msg_ts).strftime('%H:%M')
 
+        # Get message text and replace mentions
+        text = replace_mentions_in_text(message.get('text', ''), creds['token'], creds['cookie'])
+
         group_dms.append({
             'mpim_id': mpim.get('id', ''),
             'time': msg_time,
             'from_you': from_you,
             'username': username,
-            'text': message.get('text', '')
+            'text': text
         })
 
     # Counts
