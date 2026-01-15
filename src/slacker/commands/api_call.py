@@ -2,8 +2,10 @@
 
 import json
 import sys
+import asyncio
 from ..auth import read_auth_file
 from ..api import call_slack_api
+from ..utils import substitute_users_in_json_async
 
 
 def cmd_api(args):
@@ -61,6 +63,9 @@ def cmd_api(args):
         workspace_url=workspace_url,
         use_form_data=False
     )
+
+    # Resolve user IDs to usernames
+    result = asyncio.run(substitute_users_in_json_async(result, creds['token'], creds['cookie']))
 
     # Pretty print the result
     print(json.dumps(result, indent=2))
