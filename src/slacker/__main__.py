@@ -11,7 +11,7 @@ import argparse
 # Import refactored modules
 from .formatters import get_formatter
 from .api import call_slack_api
-from .auth import get_default_auth_file, read_auth_file, extract_slack_credentials, save_credentials
+from .auth import get_default_auth_file, extract_slack_credentials, save_credentials
 from .utils import get_username, get_channel_name, get_message_content
 
 # Import refactored commands
@@ -52,7 +52,7 @@ def main():
     parser.add_argument(
         '--auth-file',
         default=None,
-        help=f'Auth file location (default: {get_default_auth_file()})'
+        help='Auth file location (default: ~/.config/slacker/credentials). Ignored when SLACK_BOT_TOKEN or SLACK_TOKEN is set, unless this flag is passed explicitly.'
     )
     parser.add_argument(
         '--output', '-o',
@@ -240,9 +240,10 @@ def main():
 
     args = parser.parse_args()
 
-    # Set default auth file if not specified
+    explicit_auth_file = args.auth_file is not None
     if args.auth_file is None:
         args.auth_file = get_default_auth_file()
+    args.prefer_env = not explicit_auth_file
 
     args.func(args)
 

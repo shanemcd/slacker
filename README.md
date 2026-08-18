@@ -54,6 +54,27 @@ slacker login https://your-workspace.slack.com
 slacker --auth-file /path/to/custom/location login https://workspace.slack.com
 ```
 
+### Bot token (environment)
+
+Web API bot tokens (`xoxb-`) do not need a browser cookie. If `SLACK_BOT_TOKEN` is set, slacker uses it and skips `~/.config/slacker/credentials`. Pass `--auth-file` to force the file.
+
+```bash
+export SLACK_BOT_TOKEN=xoxb-...
+slacker whoami
+slacker api auth.test
+slacker api chat.postMessage --data '{"channel":"C123","text":"hi"}'
+```
+
+`SLACK_TOKEN` + `SLACK_COOKIE` also work (user session). A credentials file may reference env vars:
+
+```bash
+export SLACK_BOT_TOKEN=xoxb-...
+# credentials:
+#   export SLACK_BOT_TOKEN="$SLACK_BOT_TOKEN"
+```
+
+Bot tokens cannot call undocumented client APIs (`client.dms`, `activity.feed`, `/remind` via `chat.command`). Use `slacker login` for those.
+
 ### Whoami
 Test authentication and show your user info:
 ```bash

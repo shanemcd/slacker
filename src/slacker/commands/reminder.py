@@ -1,7 +1,7 @@
 """Reminder command - create a Slack reminder"""
 
 import sys
-from ..auth import read_auth_file
+from ..auth import resolve_credentials
 from ..api import call_slack_api
 
 
@@ -14,7 +14,7 @@ def cmd_reminder(args):
             - text: Reminder text (e.g., "me in 30 minutes to check email")
             - channel: Channel ID to create reminder in (optional)
     """
-    creds = read_auth_file(args.auth_file)
+    creds = resolve_credentials(args.auth_file, prefer_env=getattr(args, 'prefer_env', True))
 
     # Build the blocks structure - pass the text directly to Slack's parser
     data = {

@@ -3,7 +3,7 @@
 import json
 import sys
 import asyncio
-from ..auth import read_auth_file
+from ..auth import resolve_credentials
 from ..api import call_slack_api
 from ..utils import substitute_users_in_json_async
 
@@ -20,7 +20,7 @@ def cmd_api(args):
             - params: JSON params for GET requests
             - workspace: Use workspace domain instead of slack.com
     """
-    creds = read_auth_file(args.auth_file)
+    creds = resolve_credentials(args.auth_file, prefer_env=getattr(args, 'prefer_env', True))
 
     # Parse data if provided (for POST)
     data = None

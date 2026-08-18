@@ -1,9 +1,9 @@
 """Authentication and credential management"""
 
 import json
+import os
 import sys
 from pathlib import Path
-from playwright.sync_api import sync_playwright
 
 
 def get_default_auth_file():
@@ -38,21 +38,75 @@ def read_auth_file(auth_file):
     content = auth_path.read_text()
 
     # Parse the shell script format
-    token = None
+    session_token = None
+    bot_token = None
     cookie = None
 
     for line in content.split('\n'):
         line = line.strip()
-        if line.startswith('export SLACK_TOKEN='):
-            token = line.split('=', 1)[1].strip('"\'')
+        if line.startswith('export SLACK_BOT_TOKEN='):
+            bot_token = _parse_export_value(line.split('=', 1)[1])
+        elif line.startswith('export SLACK_TOKEN='):
+            session_token = _parse_export_value(line.split('=', 1)[1])
         elif line.startswith('export SLACK_COOKIE='):
-            cookie = line.split('=', 1)[1].strip('"\'')
+            cookie = _parse_export_value(line.split('=', 1)[1])
 
-    if not token or not cookie:
+    token = bot_token or session_token
+
+    if not token:
         print(f"Error: Could not parse credentials from {auth_file}")
         sys.exit(1)
 
-    return {'token': token, 'cookie': cookie}
+    if not cookie and not _cookie_optional(token):
+        print(f"Error: Could not parse SLACK_COOKIE from {auth_file}")
+        print("User session tokens (xoxc-) need a Slack 'd' cookie; bot tokens do not.")
+        sys.exit(1)
+
+    return {'token': token, 'cookie': cookie or None, 'source': auth_file}
+
+
+def _parse_export_value(raw):
+    """Strip quotes and expand $ENV / ${ENV} references."""
+    value = raw.strip().strip('"').strip("'")
+    expanded = os.path.expandvars(value).strip()
+    if expanded.startswith('$'):
+        return ''
+    return expanded
+
+
+def _cookie_optional(token):
+    """Bot tokens and OpenShell placeholders do not need a browser cookie."""
+    if not token:
+        return False
+    return token.startswith('xoxb-') or token.startswith('openshell:resolve:')
+
+
+def credentials_from_env():
+    """Load token from the process environment.
+
+    Prefers SLACK_BOT_TOKEN (Web API bot, cookie optional), then SLACK_TOKEN
+    (user session; SLACK_COOKIE required unless the token is a bot token).
+    """
+    bot = os.environ.get('SLACK_BOT_TOKEN', '').strip()
+    token = os.environ.get('SLACK_TOKEN', '').strip()
+    cookie = os.environ.get('SLACK_COOKIE', '').strip() or None
+
+    if bot:
+        return {'token': bot, 'cookie': cookie, 'source': 'SLACK_BOT_TOKEN'}
+    if token:
+        if not cookie and not _cookie_optional(token):
+            return None
+        return {'token': token, 'cookie': cookie, 'source': 'SLACK_TOKEN'}
+    return None
+
+
+def resolve_credentials(auth_file, *, prefer_env=True):
+    """Resolve Slack credentials from env (optional) or the credentials file."""
+    if prefer_env:
+        env_creds = credentials_from_env()
+        if env_creds:
+            return env_creds
+    return read_auth_file(auth_file)
 
 
 def save_credentials(credentials, output_file):
@@ -109,6 +163,8 @@ def extract_slack_credentials(workspace_url, headless=False):
     print(f"Opening browser to {workspace_url}")
     print("Please log in to Slack in the browser window that opens...")
     print("Once you see your workspace, press Enter here to extract credentials.")
+
+    from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
         # Launch browser (visible so user can log in)

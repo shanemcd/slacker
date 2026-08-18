@@ -2,7 +2,7 @@
 
 import sys
 import datetime
-from ..auth import read_auth_file
+from ..auth import resolve_credentials
 from ..api import call_slack_api
 from ..utils import get_channel_name, get_message_content, replace_mentions_in_text
 from ..formatters import get_formatter
@@ -18,7 +18,7 @@ def cmd_reminders_list(args):
             - limit: Maximum number of items to list
             - reminders_only: Show only reminders (exclude saved messages)
     """
-    creds = read_auth_file(args.auth_file)
+    creds = resolve_credentials(args.auth_file, prefer_env=getattr(args, 'prefer_env', True))
     formatter = get_formatter(args.output)
 
     # Call saved.list API

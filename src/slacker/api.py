@@ -4,6 +4,14 @@ import sys
 import httpx
 
 
+def slack_headers(token, cookie=None):
+    """HTTP headers for Slack Web API. Omit Cookie for bot tokens."""
+    headers = {'Authorization': f'Bearer {token}'}
+    if cookie:
+        headers['Cookie'] = f'd={cookie}'
+    return headers
+
+
 def call_slack_api(endpoint, token, cookie, method='GET', data=None, params=None,
                    workspace_url=None, use_form_data=False):
     """Make a Slack API call
@@ -34,10 +42,7 @@ def call_slack_api(endpoint, token, cookie, method='GET', data=None, params=None
 
     url = f"{base_url}/api/{endpoint}"
 
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Cookie': f'd={cookie}',
-    }
+    headers = slack_headers(token, cookie)
 
     try:
         with httpx.Client() as client:
@@ -91,10 +96,7 @@ async def call_slack_api_async(endpoint, token, cookie, client, method='GET', da
 
     url = f"{base_url}/api/{endpoint}"
 
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Cookie': f'd={cookie}',
-    }
+    headers = slack_headers(token, cookie)
 
     try:
         if method == 'GET':

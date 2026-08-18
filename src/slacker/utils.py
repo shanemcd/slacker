@@ -4,7 +4,7 @@ import re
 import json
 import asyncio
 import httpx
-from .api import call_slack_api, call_slack_api_async
+from .api import call_slack_api, slack_headers, call_slack_api_async
 
 
 def get_username(user_id, token, cookie):
@@ -169,11 +169,8 @@ async def fetch_usergroup_names_async(usergroup_ids, token, cookie, client):
         return {}
 
     url = "https://edgeapi.slack.com/cache/E030G10V24F/usergroups/info"
-    headers = {
-        'Content-Type': 'text/plain;charset=UTF-8',
-        'Authorization': f'Bearer {token}',
-        'Cookie': f'd={cookie}',
-    }
+    headers = slack_headers(token, cookie)
+    headers['Content-Type'] = 'text/plain;charset=UTF-8'
 
     payload = {
         "token": token,

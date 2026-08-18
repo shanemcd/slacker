@@ -3,7 +3,7 @@
 import sys
 import asyncio
 import httpx
-from ..auth import read_auth_file
+from ..auth import resolve_credentials
 from ..api import call_slack_api, call_slack_api_async
 from ..formatters import get_formatter
 
@@ -343,7 +343,7 @@ def cmd_activity(args):
             - output: Output format ('text' or 'json')
             - tab: Which activity tab to show (all, mentions, threads, reactions)
     """
-    creds = read_auth_file(args.auth_file)
+    creds = resolve_credentials(args.auth_file, prefer_env=getattr(args, 'prefer_env', True))
     formatter = get_formatter(args.output)
 
     # Get workspace URL from auth.test
