@@ -4,7 +4,7 @@ import sys
 import asyncio
 import httpx
 from ..auth import resolve_credentials
-from ..api import call_slack_api, call_slack_api_async
+from ..api import call_slack_api, call_slack_api_async, slack_cookie_header
 from ..formatters import get_formatter
 
 
@@ -130,7 +130,7 @@ async def fetch_usergroup_names(usergroup_ids, token, cookie, client, workspace_
     headers = {
         'Content-Type': 'text/plain;charset=UTF-8',
         'Authorization': f'Bearer {token}',
-        'Cookie': f'd={cookie}',
+        'Cookie': slack_cookie_header(cookie),
     }
 
     payload = {

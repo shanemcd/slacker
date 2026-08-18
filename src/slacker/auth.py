@@ -84,13 +84,17 @@ def _cookie_optional(token):
 def credentials_from_env():
     """Load token from the process environment.
 
-    Prefers SLACK_BOT_TOKEN (Web API bot, cookie optional), then SLACK_TOKEN
-    (user session; SLACK_COOKIE required unless the token is a bot token).
+    Prefers a user session when both SLACK_TOKEN and SLACK_COOKIE are set
+    (needed for saved.* / client APIs). Otherwise SLACK_BOT_TOKEN (cookie
+    optional), then SLACK_TOKEN alone (cookie required unless the token is a
+    bot token or OpenShell placeholder).
     """
     bot = os.environ.get('SLACK_BOT_TOKEN', '').strip()
     token = os.environ.get('SLACK_TOKEN', '').strip()
     cookie = os.environ.get('SLACK_COOKIE', '').strip() or None
 
+    if token and cookie:
+        return {'token': token, 'cookie': cookie, 'source': 'SLACK_TOKEN'}
     if bot:
         return {'token': bot, 'cookie': cookie, 'source': 'SLACK_BOT_TOKEN'}
     if token:

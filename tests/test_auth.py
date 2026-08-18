@@ -43,11 +43,22 @@ class CredentialsFromEnvTests(unittest.TestCase):
             creds = credentials_from_env()
         self.assertEqual(creds['cookie'], 'xoxd-cookie')
 
-    def test_bot_token_wins_over_session(self):
+    def test_session_wins_when_cookie_is_set(self):
         env = {
             'SLACK_BOT_TOKEN': 'xoxb-bot',
             'SLACK_TOKEN': 'xoxc-user',
             'SLACK_COOKIE': 'xoxd-cookie',
+        }
+        with mock.patch.dict(os.environ, env, clear=True):
+            creds = credentials_from_env()
+        self.assertEqual(creds['token'], 'xoxc-user')
+        self.assertEqual(creds['cookie'], 'xoxd-cookie')
+        self.assertEqual(creds['source'], 'SLACK_TOKEN')
+
+    def test_bot_token_when_session_cookie_missing(self):
+        env = {
+            'SLACK_BOT_TOKEN': 'xoxb-bot',
+            'SLACK_TOKEN': 'xoxc-user',
         }
         with mock.patch.dict(os.environ, env, clear=True):
             creds = credentials_from_env()
@@ -107,6 +118,15 @@ class SlackHeadersTests(unittest.TestCase):
 
     def test_includes_cookie_when_present(self):
         headers = slack_headers('xoxc-user', 'xoxd-cookie')
+        self.assertEqual(headers['Cookie'], 'd=xoxd-cookie')
+
+    def test_placeholder_cookie_is_entire_header_value(self):
+        headers = slack_headers('openshell:resolve:env:SLACK_TOKEN',
+                                'openshell:resolve:env:SLACK_COOKIE')
+        self.assertEqual(headers['Cookie'], 'openshell:resolve:env:SLACK_COOKIE')
+
+    def test_prefixed_cookie_value_not_double_wrapped(self):
+        headers = slack_headers('xoxc-user', 'd=xoxd-cookie')
         self.assertEqual(headers['Cookie'], 'd=xoxd-cookie')
 
 

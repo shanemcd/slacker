@@ -56,7 +56,7 @@ slacker --auth-file /path/to/custom/location login https://workspace.slack.com
 
 ### Bot token (environment)
 
-Web API bot tokens (`xoxb-`) do not need a browser cookie. If `SLACK_BOT_TOKEN` is set, slacker uses it and skips `~/.config/slacker/credentials`. Pass `--auth-file` to force the file.
+Web API bot tokens (`xoxb-`) do not need a browser cookie. If `SLACK_TOKEN` and `SLACK_COOKIE` are both set, slacker uses the user session (including when `SLACK_BOT_TOKEN` is also present). Otherwise `SLACK_BOT_TOKEN` wins and slacker skips `~/.config/slacker/credentials`. Pass `--auth-file` to force the file.
 
 ```bash
 export SLACK_BOT_TOKEN=xoxb-...

@@ -4,11 +4,23 @@ import sys
 import httpx
 
 
+def slack_cookie_header(cookie):
+    """Build a Cookie header value for Slack.
+
+    Browser cookies are stored as the raw ``d`` value. OpenShell placeholders
+    must be the entire header value so the proxy can rewrite them; store
+    ``d=<cookie>`` as the provider secret.
+    """
+    if cookie.startswith('openshell:resolve:') or cookie.startswith('d='):
+        return cookie
+    return f'd={cookie}'
+
+
 def slack_headers(token, cookie=None):
     """HTTP headers for Slack Web API. Omit Cookie for bot tokens."""
     headers = {'Authorization': f'Bearer {token}'}
     if cookie:
-        headers['Cookie'] = f'd={cookie}'
+        headers['Cookie'] = slack_cookie_header(cookie)
     return headers
 
 
