@@ -106,6 +106,21 @@ def get_message_content(channel_id, timestamp, token, cookie):
                                       'inclusive': True, 'limit': 1})
         if result.get('ok') and result.get('messages'):
             message = result['messages'][0]
+
+            # conversations.history only returns thread parents. If the
+            # saved timestamp is a reply, fetch the thread and select it.
+            if str(message.get('ts')) != str(timestamp) and message.get('thread_ts'):
+                replies = call_slack_api(
+                    'conversations.replies', token, cookie, method='GET',
+                    params={'channel': channel_id, 'ts': message['thread_ts'], 'limit': 100}
+                )
+                if replies.get('ok'):
+                    message = next(
+                        (reply for reply in replies.get('messages', [])
+                         if str(reply.get('ts')) == str(timestamp)),
+                        message,
+                    )
+
             # Extract text from message
             text = message.get('text', '')
 
